@@ -70,44 +70,85 @@ def convert_to_audio(pdf_id):
     # Log para depuração
     print(f"[Convert] Usuário {current_user.email} tentando converter PDF {pdf_id}")
     
-    # Verifica se o PDF existe e pertence ao usuário
-    pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first_or_404()
-    
-    # Verifica se já existe um áudio para este PDF
-    if pdf.audio_files:
-        flash('Este PDF já foi convertido para áudio.', 'info')
+    try:
+        # Verifica se o PDF existe e pertence ao usuário
+        pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first_or_404()
+        print(f"[Convert] PDF encontrado: {pdf.title}")
+        
+        # Verifica se já existe um áudio para este PDF
+        if pdf.audio_files:
+            print(f"[Convert] PDF já possui áudio")
+            flash('Este PDF já foi convertido para áudio.', 'info')
+            return redirect(url_for('pdf.dashboard'))
+        
+        # Caminho completo para o PDF
+        pdf_path = os.path.join(current_app.config['UPLOAD_FOLDER'], pdf.file_path)
+        print(f"[Convert] Caminho do PDF: {pdf_path}")
+        
+        # Verifica se o arquivo existe
+        if not os.path.exists(pdf_path):
+            print(f"[Convert] ERRO: Arquivo PDF não encontrado no caminho: {pdf_path}")
+            flash('Arquivo PDF não encontrado no servidor.', 'danger')
+            return redirect(url_for('pdf.dashboard'))
+        
+        print(f"[Convert] Extraindo texto do PDF...")
+        # Extrai o texto do PDF
+        text, _ = extract_text_from_pdf(pdf_path)
+        
+        if not text:
+            print(f"[Convert] ERRO: Não foi possível extrair texto do PDF")
+            flash('Não foi possível extrair texto deste PDF.', 'danger')
+            return redirect(url_for('pdf.dashboard'))
+        
+        print(f"[Convert] Texto extraído com sucesso. Tamanho: {len(text)} caracteres")
+        print(f"[Convert] Convertendo texto para áudio...")
+        
+        # Verifica se o diretório de áudio existe
+        audio_folder = current_app.config['AUDIO_FOLDER']
+        if not os.path.exists(audio_folder):
+            print(f"[Convert] Criando diretório de áudio: {audio_folder}")
+            os.makedirs(audio_folder, exist_ok=True)
+        
+        # Verifica a API key do OpenAI
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if not openai_key:
+            print(f"[Convert] ERRO: API key do OpenAI não encontrada")
+            flash('Erro de configuração: API key do OpenAI não encontrada.', 'danger')
+            return redirect(url_for('pdf.dashboard'))
+        else:
+            print(f"[Convert] API key do OpenAI encontrada e configurada")
+        
+        # Converte o texto para áudio
+        audio_filename, duration = text_to_speech(text, audio_folder)
+        
+        if not audio_filename:
+            print(f"[Convert] ERRO: Falha na conversão de texto para áudio")
+            flash('Erro ao converter o texto para áudio.', 'danger')
+            return redirect(url_for('pdf.dashboard'))
+        
+        print(f"[Convert] Áudio gerado com sucesso: {audio_filename}, duração: {duration}s")
+        
+        # Cria o registro do áudio no banco de dados
+        audio = AudioFile(
+            filename=audio_filename,
+            file_path=audio_filename,
+            duration=duration,
+            pdf_id=pdf.id
+        )
+        
+        db.session.add(audio)
+        db.session.commit()
+        print(f"[Convert] Registro de áudio salvo no banco de dados")
+        
+        flash('PDF convertido para áudio com sucesso!', 'success')
         return redirect(url_for('pdf.dashboard'))
     
-    # Caminho completo para o PDF
-    pdf_path = os.path.join(current_app.config['UPLOAD_FOLDER'], pdf.file_path)
-    
-    # Extrai o texto do PDF
-    text, _ = extract_text_from_pdf(pdf_path)
-    
-    if not text:
-        flash('Não foi possível extrair texto deste PDF.', 'danger')
+    except Exception as e:
+        print(f"[Convert] ERRO CRÍTICO na conversão: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        flash(f'Erro durante a conversão: {str(e)}', 'danger')
         return redirect(url_for('pdf.dashboard'))
-    
-    # Converte o texto para áudio
-    audio_filename, duration = text_to_speech(text, current_app.config['AUDIO_FOLDER'])
-    
-    if not audio_filename:
-        flash('Erro ao converter o texto para áudio.', 'danger')
-        return redirect(url_for('pdf.dashboard'))
-    
-    # Cria o registro do áudio no banco de dados
-    audio = AudioFile(
-        filename=audio_filename,
-        file_path=audio_filename,
-        duration=duration,
-        pdf_id=pdf.id
-    )
-    
-    db.session.add(audio)
-    db.session.commit()
-    
-    flash('PDF convertido para áudio com sucesso!', 'success')
-    return redirect(url_for('pdf.dashboard'))
 
 @pdf_bp.route('/download/<int:pdf_id>')
 @login_required

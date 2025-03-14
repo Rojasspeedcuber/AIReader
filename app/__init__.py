@@ -3,6 +3,7 @@
 # Importa o aplicativo Flask do módulo principal
 from flask import Flask
 from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
 import os
 from dotenv import load_dotenv
 
@@ -12,6 +13,9 @@ load_dotenv()
 # Inicializa a aplicação Flask
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_secreta_temporaria')
+
+# Configura proteção CSRF
+csrf = CSRFProtect(app)
 
 # Configura o banco de dados SQLite
 # Usando caminho absoluto para funcionar com Docker

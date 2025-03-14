@@ -49,8 +49,20 @@ def cancel_subscription(subscription_id):
     """Cancela uma assinatura"""
     try:
         print(f"[Stripe Service] Iniciando cancelamento da assinatura ID: {subscription_id}")
-        subscription = stripe.Subscription.retrieve(subscription_id)
-        print(f"[Stripe Service] Assinatura recuperada: {subscription.id} - Status atual: {subscription.status}")
+        
+        # Verifica se o subscription_id é válido
+        if not subscription_id:
+            print("[Stripe Service] ID de assinatura inválido ou vazio")
+            return None
+            
+        # Recupera a assinatura
+        try:
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            print(f"[Stripe Service] Assinatura recuperada: {subscription.id} - Status atual: {subscription.status}")
+        except stripe.error.InvalidRequestError as e:
+            print(f"[Stripe Service] Assinatura não encontrada: {str(e)}")
+            # Se a assinatura não existe, informamos isso de forma explícita
+            return None
         
         # Se a assinatura já estiver cancelada, apenas retorne-a
         if subscription.status == 'canceled':
@@ -58,9 +70,14 @@ def cancel_subscription(subscription_id):
             return subscription
         
         # Cancela a assinatura
-        canceled_subscription = stripe.Subscription.delete(subscription_id)
-        print(f"[Stripe Service] Assinatura cancelada com sucesso: {canceled_subscription.id} - Novo status: {canceled_subscription.status}")
-        return canceled_subscription
+        try:
+            canceled_subscription = stripe.Subscription.delete(subscription_id)
+            print(f"[Stripe Service] Assinatura cancelada com sucesso: {canceled_subscription.id} - Novo status: {canceled_subscription.status}")
+            return canceled_subscription
+        except stripe.error.StripeError as e:
+            print(f"[Stripe Service] Erro ao excluir assinatura: {str(e)}")
+            return None
+            
     except stripe.error.StripeError as e:
         # Trata erros específicos do Stripe com mais detalhes
         print(f"[Stripe Service] Erro Stripe ao cancelar assinatura: {str(e)}")

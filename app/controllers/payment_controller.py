@@ -5,6 +5,7 @@ from app.models.user import User
 from app.utils.stripe_service import create_checkout_session, get_subscription, handle_subscription_event, cancel_subscription
 import os
 import stripe
+from datetime import datetime, timedelta
 
 payment_bp = Blueprint('payment', __name__)
 
@@ -50,6 +51,12 @@ def create_checkout():
 @payment_bp.route('/subscription-success')
 @login_required
 def subscription_success():
+    # Atualiza o status de assinatura do usuário no retorno do pagamento bem-sucedido
+    # Isso garante acesso mesmo se o webhook não for processado imediatamente
+    current_user.subscription_status = 'active'
+    current_user.subscription_end_date = datetime.utcnow() + timedelta(days=30)  # 30 dias de assinatura
+    db.session.commit()
+    
     flash('Obrigado por assinar o AI Reader! Agora você tem acesso completo ao serviço.', 'success')
     return redirect(url_for('pdf.dashboard'))
 
@@ -79,15 +86,21 @@ def webhook():
     payload = request.data
     sig_header = request.headers.get('Stripe-Signature')
     
+    # Adiciona log para depuração
+    print("[Webhook] Recebido evento do Stripe")
+    
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, os.environ.get('STRIPE_WEBHOOK_SECRET')
         )
+        print(f"[Webhook] Evento construído com sucesso: {event['type']}")
     except ValueError as e:
         # Payload inválido
+        print(f"[Webhook] Erro de payload inválido: {e}")
         return jsonify({'error': str(e)}), 400
     except stripe.error.SignatureVerificationError as e:
         # Assinatura inválida
+        print(f"[Webhook] Erro de verificação de assinatura: {e}")
         return jsonify({'error': str(e)}), 400
     
     # Eventos de assinatura
@@ -95,6 +108,8 @@ def webhook():
        event['type'] == 'customer.subscription.updated':
         subscription = event['data']['object']
         customer_id = subscription.customer
+        
+        print(f"[Webhook] Evento de assinatura: {event['type']} para cliente {customer_id}")
         
         # Encontra o usuário
         user = User.query.filter_by(stripe_customer_id=customer_id).first()
@@ -107,10 +122,15 @@ def webhook():
             user.stripe_subscription_id = subscription_data['subscription_id']
             
             db.session.commit()
+            print(f"[Webhook] Assinatura atualizada para usuário {user.email} - Status: {user.subscription_status}")
+        else:
+            print(f"[Webhook] Usuário não encontrado para customer_id: {customer_id}")
     
     elif event['type'] == 'customer.subscription.deleted':
         subscription = event['data']['object']
         customer_id = subscription.customer
+        
+        print(f"[Webhook] Evento de cancelamento para cliente {customer_id}")
         
         # Encontra o usuário
         user = User.query.filter_by(stripe_customer_id=customer_id).first()
@@ -118,5 +138,8 @@ def webhook():
             # Atualiza o status da assinatura
             user.subscription_status = 'canceled'
             db.session.commit()
+            print(f"[Webhook] Assinatura cancelada para usuário {user.email}")
+        else:
+            print(f"[Webhook] Usuário não encontrado para customer_id: {customer_id}")
     
     return jsonify({'status': 'success'}) 

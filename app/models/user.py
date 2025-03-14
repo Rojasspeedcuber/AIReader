@@ -26,6 +26,15 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
     
     def is_subscribed(self):
-        return self.subscription_status == 'active' and \
-               (self.subscription_end_date is None or \
-                self.subscription_end_date > datetime.utcnow()) 
+        # Verifica se o status está ativo
+        if self.subscription_status != 'active':
+            print(f"Usuário {self.email} não está inscrito - status: {self.subscription_status}")
+            return False
+            
+        # Verifica a data de expiração
+        if self.subscription_end_date is not None and self.subscription_end_date < datetime.utcnow():
+            print(f"Usuário {self.email} com assinatura expirada em {self.subscription_end_date}")
+            return False
+            
+        print(f"Usuário {self.email} com assinatura ativa até {self.subscription_end_date}")
+        return True 

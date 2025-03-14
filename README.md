@@ -78,7 +78,7 @@ pip install -r requirements.txt
 
 5. Inicie a aplicação:
 ```
-python app.py
+python main.py
 ```
 
 6. Acesse a aplicação em seu navegador:
@@ -88,13 +88,20 @@ http://localhost:8000
 
 ### Solução de problemas
 
-Se você encontrar o erro "No module named 'app.controllers'; 'app' is not a package" ao rodar a aplicação com Docker, verifique se os arquivos `__init__.py` existem nos seguintes diretórios:
-- `app/`
-- `app/controllers/`
-- `app/models/`
-- `app/utils/`
+Se você encontrar erros relacionados a importações ou módulos não encontrados, verifique:
 
-Esses arquivos são necessários para que o Python reconheça os diretórios como pacotes. Se estiverem faltando, crie-os (podem estar vazios) e reconstrua os contêineres.
+1. Se os arquivos `__init__.py` existem nos seguintes diretórios:
+   - `app/`
+   - `app/controllers/`
+   - `app/models/`
+   - `app/utils/`
+
+2. Se você está usando a estrutura de importação correta:
+   - Para importações dentro do pacote: `from app.models.user import User`
+   - Ao executar o aplicativo: `python main.py`
+
+3. Se o PYTHONPATH está configurado corretamente (para Docker):
+   - Deve conter o diretório raiz do projeto
 
 ## Tecnologias Utilizadas
 
@@ -112,7 +119,7 @@ Esses arquivos são necessários para que o Python reconheça os diretórios com
 aireader/
 │
 ├── app/                    # Código principal da aplicação
-│   ├── __init__.py         # Torna o diretório um pacote Python
+│   ├── __init__.py         # Inicializa o aplicativo Flask
 │   ├── controllers/        # Controladores
 │   │   └── __init__.py     # Torna o diretório um pacote Python
 │   ├── models/             # Modelos de dados
@@ -126,7 +133,7 @@ aireader/
 │   └── utils/              # Utilitários e serviços
 │       └── __init__.py     # Torna o diretório um pacote Python
 │
-├── app.py                  # Ponto de entrada da aplicação
+├── main.py                 # Ponto de entrada da aplicação para execução local
 ├── requirements.txt        # Dependências do projeto
 ├── Dockerfile              # Configuração do Docker
 ├── docker-compose.yml      # Configuração do Docker Compose

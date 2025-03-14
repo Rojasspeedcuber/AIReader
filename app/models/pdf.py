@@ -2,6 +2,8 @@ from app.models.db import db
 from datetime import datetime
 
 class PDF(db.Model):
+    __tablename__ = 'pdf'  # Definindo explicitamente o nome da tabela em minúsculas
+    
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200))
     filename = db.Column(db.String(200))
@@ -26,11 +28,13 @@ class PDF(db.Model):
 
 
 class AudioFile(db.Model):
+    __tablename__ = 'audio_file'  # Definindo explicitamente o nome da tabela
+    
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(200))
     file_path = db.Column(db.String(300))
     creation_date = db.Column(db.DateTime, default=datetime.utcnow)
     duration = db.Column(db.Float, nullable=True)  # Duração em segundos
     
-    # Relacionamento com o PDF
-    pdf_id = db.Column(db.Integer, db.ForeignKey('PDF.id'), nullable=False) 
+    # Relacionamento com o PDF - corrigindo a referência para usar o nome da tabela em minúsculas
+    pdf_id = db.Column(db.Integer, db.ForeignKey('pdf.id'), nullable=False)

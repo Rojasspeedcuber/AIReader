@@ -1,7 +1,7 @@
 flask==2.3.3
 flask-login==0.6.2
-flask_sqlalchemy
 flask-wtf==1.1.1
+flask-sqlalchemy==3.0.3
 werkzeug==2.3.7
 stripe==7.6.0
 openai==1.3.5

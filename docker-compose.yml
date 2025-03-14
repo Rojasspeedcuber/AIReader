@@ -12,6 +12,8 @@ services:
       - ./app/static/audios:/app/app/static/audios
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
     depends_on:
       - init_db
     networks:
@@ -23,6 +25,8 @@ services:
     command: python -c "from app import app; from app.models.db import db; app.app_context().push(); db.create_all()"
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
     volumes:
       - sqlite_data:/app/instance
     networks:

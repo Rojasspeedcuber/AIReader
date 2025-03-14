@@ -86,6 +86,16 @@ python app.py
 http://localhost:8000
 ```
 
+### Solução de problemas
+
+Se você encontrar o erro "No module named 'app.controllers'; 'app' is not a package" ao rodar a aplicação com Docker, verifique se os arquivos `__init__.py` existem nos seguintes diretórios:
+- `app/`
+- `app/controllers/`
+- `app/models/`
+- `app/utils/`
+
+Esses arquivos são necessários para que o Python reconheça os diretórios como pacotes. Se estiverem faltando, crie-os (podem estar vazios) e reconstrua os contêineres.
+
 ## Tecnologias Utilizadas
 
 - **Backend**: Flask (Python)
@@ -102,8 +112,11 @@ http://localhost:8000
 aireader/
 │
 ├── app/                    # Código principal da aplicação
+│   ├── __init__.py         # Torna o diretório um pacote Python
 │   ├── controllers/        # Controladores
+│   │   └── __init__.py     # Torna o diretório um pacote Python
 │   ├── models/             # Modelos de dados
+│   │   └── __init__.py     # Torna o diretório um pacote Python
 │   ├── static/             # Arquivos estáticos (CSS, JS)
 │   │   ├── css/
 │   │   ├── js/
@@ -111,6 +124,7 @@ aireader/
 │   │   └── audios/         # Arquivos de áudio gerados
 │   ├── templates/          # Templates HTML
 │   └── utils/              # Utilitários e serviços
+│       └── __init__.py     # Torna o diretório um pacote Python
 │
 ├── app.py                  # Ponto de entrada da aplicação
 ├── requirements.txt        # Dependências do projeto

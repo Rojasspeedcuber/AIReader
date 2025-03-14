@@ -24,6 +24,8 @@ EXPOSE 8000
 
 # Define a variável de ambiente para produção
 ENV FLASK_ENV=production
+# Configura o PYTHONPATH para incluir o diretório atual
+ENV PYTHONPATH=/app
 
 # Comando para iniciar a aplicação
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"] 

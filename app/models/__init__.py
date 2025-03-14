@@ -1,0 +1,1 @@
+# Este arquivo permite que o diretório 'models' seja importado como um pacote Python 

@@ -23,15 +23,21 @@
                     <ul class="navbar-nav ms-auto">
                         {% if current_user.is_authenticated %}
                             {% if current_user.is_subscribed() %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('pdf.dashboard') }}">
-                                    <i class="fas fa-tachometer-alt me-1"></i>Dashboard
-                                </a>
-                            </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for('pdf.dashboard') }}">
+                                        <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                                    </a>
+                                </li>
                             {% endif %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('payment.subscription') }}">
-                                    <i class="fas fa-credit-card me-1"></i>Assinatura
+                                    <i class="fas fa-credit-card me-1"></i>
+                                    {% if current_user.is_subscribed() %}
+                                        <span class="badge bg-success rounded-pill me-1">Ativo</span>
+                                    {% else %}
+                                        <span class="badge bg-warning rounded-pill me-1">Inativo</span>
+                                    {% endif %}
+                                    Assinatura
                                 </a>
                             </li>
                             <li class="nav-item">

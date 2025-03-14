@@ -135,18 +135,21 @@ def process_conversion_background(pdf_id, user_id, app):
 
 @pdf_bp.route('/dashboard')
 @login_required
-@subscription_required
 def dashboard():
+    # Verifica se o usuário tem assinatura ativa
+    if not current_user.is_subscribed():
+        flash('É necessário ter uma assinatura ativa para acessar o dashboard.', 'warning')
+        return redirect(url_for('payment.subscription'))
+        
     try:
         # Log para depuração
-        print(f"[Dashboard] Usuário {current_user.email} tentando acessar o dashboard")
+        print(f"[Dashboard] Usuário {current_user.email} acessando o dashboard")
         
         pdfs = PDF.query.filter_by(user_id=current_user.id).order_by(PDF.upload_date.desc()).all()
         form = UploadPDFForm()
         
         return render_template('dashboard.html', pdfs=pdfs, form=form)
     except Exception as e:
-        # Se houver erro no dashboard (provavelmente problema com banco de dados)
         print(f"[Dashboard] ERRO: {str(e)}")
         import traceback
         print(traceback.format_exc())

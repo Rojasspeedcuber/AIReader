@@ -11,7 +11,10 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('pdf.dashboard'))
+        if current_user.is_subscribed():
+            return redirect(url_for('pdf.dashboard'))
+        else:
+            return redirect(url_for('payment.subscription'))
         
     form = LoginForm()
     
@@ -19,15 +22,15 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         
         if user and user.check_password(form.password.data):
-            # Para depuração e facilitar o acesso, ativamos a assinatura temporariamente
-            print(f"[Login] Ativando assinatura temporária para usuário {user.email}")
-            user.subscription_status = 'active'
-            user.subscription_end_date = datetime.utcnow() + timedelta(days=30)
-            db.session.commit()
-            
             login_user(user)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('pdf.dashboard'))
+            
+            # Redireciona baseado no status da assinatura
+            if user.is_subscribed():
+                next_page = request.args.get('next')
+                return redirect(next_page or url_for('pdf.dashboard'))
+            else:
+                flash('Bem-vindo! Para acessar o dashboard, você precisa ter uma assinatura ativa.', 'info')
+                return redirect(url_for('payment.subscription'))
         else:
             flash('Email ou senha incorretos. Por favor, tente novamente.', 'danger')
     

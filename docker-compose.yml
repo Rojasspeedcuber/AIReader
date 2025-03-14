@@ -8,6 +8,7 @@ services:
     volumes:
       - ./app/static/uploads:/app/app/static/uploads
       - ./app/static/audios:/app/app/static/audios
+      - sqlite_data:/app/instance
     env_file:
       - .env
     environment:
@@ -20,7 +21,16 @@ services:
   init_db:
     build: .
     container_name: aireader_init_db
-    command: python -c "from app import app; from app.models.db import db; app.app_context().push(); db.create_all()"
+    command: >
+      python -c "
+      from app import app; 
+      from app.models.db import db; 
+      from app.models.user import User; 
+      from app.models.pdf import PDF, AudioFile; 
+      app.app_context().push(); 
+      db.create_all(); 
+      print('Banco de dados inicializado com sucesso!')
+      "
     env_file:
       - .env
     environment:

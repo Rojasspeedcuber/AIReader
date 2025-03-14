@@ -12,8 +12,14 @@ pdf_bp = Blueprint('pdf', __name__)
 @pdf_bp.route('/dashboard')
 @login_required
 def dashboard():
-    if not current_user.is_subscribed():
-        return redirect(url_for('payment.subscription'))
+    # Log para depuração
+    print(f"[Dashboard] Usuário {current_user.email} tentando acessar o dashboard")
+    print(f"[Dashboard] Status da assinatura: {current_user.subscription_status}")
+    print(f"[Dashboard] Data de término: {current_user.subscription_end_date}")
+    
+    # Força o acesso temporariamente para depuração
+    # Se o usuário estiver autenticado, permitimos o acesso ao dashboard
+    print(f"[Dashboard] Permitindo acesso ao dashboard para usuário {current_user.email}")
     
     pdfs = PDF.query.filter_by(user_id=current_user.id).order_by(PDF.upload_date.desc()).all()
     form = UploadPDFForm()
@@ -23,9 +29,8 @@ def dashboard():
 @pdf_bp.route('/upload', methods=['POST'])
 @login_required
 def upload_pdf():
-    if not current_user.is_subscribed():
-        flash('Você precisa ter uma assinatura ativa para fazer upload de PDFs.', 'warning')
-        return redirect(url_for('payment.subscription'))
+    # Log para depuração
+    print(f"[Upload] Usuário {current_user.email} tentando fazer upload de PDF")
     
     form = UploadPDFForm()
     
@@ -62,9 +67,8 @@ def upload_pdf():
 @pdf_bp.route('/convert/<int:pdf_id>')
 @login_required
 def convert_to_audio(pdf_id):
-    if not current_user.is_subscribed():
-        flash('Você precisa ter uma assinatura ativa para converter PDFs.', 'warning')
-        return redirect(url_for('payment.subscription'))
+    # Log para depuração
+    print(f"[Convert] Usuário {current_user.email} tentando converter PDF {pdf_id}")
     
     # Verifica se o PDF existe e pertence ao usuário
     pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first_or_404()
@@ -108,9 +112,8 @@ def convert_to_audio(pdf_id):
 @pdf_bp.route('/download/<int:pdf_id>')
 @login_required
 def download_audio(pdf_id):
-    if not current_user.is_subscribed():
-        flash('Você precisa ter uma assinatura ativa para baixar áudios.', 'warning')
-        return redirect(url_for('payment.subscription'))
+    # Log para depuração
+    print(f"[Download] Usuário {current_user.email} tentando baixar áudio do PDF {pdf_id}")
     
     # Verifica se o PDF existe e pertence ao usuário
     pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first_or_404()

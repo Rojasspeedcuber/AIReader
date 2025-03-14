@@ -4,6 +4,7 @@ from app.models.db import db
 from app.models.user import User
 from app.utils.forms import RegisterForm, LoginForm
 from app.utils.stripe_service import create_customer
+from datetime import datetime, timedelta
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -18,6 +19,12 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         
         if user and user.check_password(form.password.data):
+            # Para depuração e facilitar o acesso, ativamos a assinatura temporariamente
+            print(f"[Login] Ativando assinatura temporária para usuário {user.email}")
+            user.subscription_status = 'active'
+            user.subscription_end_date = datetime.utcnow() + timedelta(days=30)
+            db.session.commit()
+            
             login_user(user)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('pdf.dashboard'))

@@ -123,7 +123,7 @@ def convert_to_audio(pdf_id):
         
         if not audio_filename:
             print(f"[Convert] ERRO: Falha na conversão de texto para áudio")
-            flash('Erro ao converter o texto para áudio.', 'danger')
+            flash('Erro ao converter o texto para áudio. Problema na API de conversão. Por favor, tente novamente mais tarde.', 'danger')
             return redirect(url_for('pdf.dashboard'))
         
         print(f"[Convert] Áudio gerado com sucesso: {audio_filename}, duração: {duration}s")

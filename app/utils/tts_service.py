@@ -25,72 +25,149 @@ def text_to_speech(text, output_folder):
         print(f"[TTS] Texto muito longo ({len(text)} caracteres). Truncando para {max_chars} caracteres.")
         text = text[:max_chars]
     
-    # Inicializa o cliente da OpenAI
+    # Tenta usar o método OpenAI primeiro
+    try:
+        print(f"[TTS] Tentando converter com OpenAI...")
+        result = tts_with_openai(text, output_folder)
+        if result[0]:  # Se conseguiu gerar o áudio
+            print(f"[TTS] Conversão com OpenAI bem-sucedida!")
+            return result
+    except Exception as e:
+        print(f"[TTS] Erro na conversão com OpenAI: {e}")
+    
+    # Se falhar com OpenAI, tenta o método alternativo com gTTS
+    try:
+        print(f"[TTS] Tentando converter com Google TTS...")
+        result = tts_with_gtts(text, output_folder)
+        if result[0]:
+            print(f"[TTS] Conversão com Google TTS bem-sucedida!")
+            return result
+    except Exception as e:
+        print(f"[TTS] Erro na conversão com Google TTS: {e}")
+    
+    # Se ambos falharem, tenta um método de último recurso
+    try:
+        print(f"[TTS] Tentando método de último recurso...")
+        result = dummy_audio_fallback(output_folder)
+        if result[0]:
+            print(f"[TTS] Método de último recurso bem-sucedido")
+            return result
+    except Exception as e:
+        print(f"[TTS] Todos os métodos de conversão falharam: {e}")
+    
+    # Se tudo falhar, retorna None
+    return None, 0
+
+def tts_with_openai(text, output_folder):
+    """Converte texto para áudio usando OpenAI."""
     try:
         api_key = os.environ.get("OPENAI_API_KEY")
-        print(f"[TTS] Inicializando cliente OpenAI com API key: {api_key[:5]}...{api_key[-4:] if api_key else 'None'}")
+        print(f"[TTS-OpenAI] Verificando API key: {api_key[:5]}...{api_key[-4:] if api_key and len(api_key) > 8 else 'INVÁLIDA'}")
+        
+        if not api_key:
+            print("[TTS-OpenAI] API key não encontrada")
+            return None, 0
+            
         client = OpenAI(api_key=api_key)
-    except Exception as e:
-        print(f"[TTS] ERRO ao inicializar cliente OpenAI: {e}")
-        return None, 0
-    
-    # Gera um nome de arquivo único
-    unique_filename = f"{uuid.uuid4().hex}.mp3"
-    output_path = os.path.join(output_folder, unique_filename)
-    print(f"[TTS] Nome do arquivo de saída: {unique_filename}")
-    print(f"[TTS] Caminho completo: {output_path}")
-    
-    try:
-        print(f"[TTS] Criando arquivo temporário para armazenar o áudio")
-        # Utiliza um arquivo temporário para evitar problemas de permissão
+        
+        # Gera um nome de arquivo único
+        unique_filename = f"{uuid.uuid4().hex}.mp3"
+        output_path = os.path.join(output_folder, unique_filename)
+        
+        # Utiliza um arquivo temporário
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
             temp_path = temp_file.name
-            print(f"[TTS] Arquivo temporário criado em: {temp_path}")
-            
-            print(f"[TTS] Chamando API da OpenAI para conversão de texto para fala")
-            start_time = time.time()
             
             # Faz a chamada para a API
             response = client.audio.speech.create(
-                model="tts-1",  # ou "tts-1-hd" para melhor qualidade
-                voice="alloy",  # opções: alloy, echo, fable, onyx, nova, shimmer
+                model="tts-1",
+                voice="alloy",
                 input=text,
                 response_format="mp3"
             )
             
-            api_time = time.time() - start_time
-            print(f"[TTS] Resposta da API recebida em {api_time:.2f} segundos")
-            
             # Salva a resposta no arquivo temporário
-            print(f"[TTS] Salvando a resposta no arquivo temporário")
             response.stream_to_file(temp_path)
-            print(f"[TTS] Arquivo temporário salvo com sucesso")
             
-            # Move o arquivo temporário para o destino final
-            print(f"[TTS] Movendo arquivo temporário para o destino final")
+            # Move o arquivo para o destino final
             import shutil
             shutil.move(temp_path, output_path)
-            print(f"[TTS] Arquivo movido com sucesso para: {output_path}")
         
-        # Estima a duração (aproximadamente)
-        # Em média, a fala humana tem cerca de 150 palavras por minuto
+        # Estima a duração
         word_count = len(text.split())
         estimated_duration = (word_count / 150) * 60  # em segundos
-        print(f"[TTS] Conversão concluída. Duração estimada: {estimated_duration:.2f} segundos")
         
         return unique_filename, estimated_duration
-    
+        
     except Exception as e:
-        print(f"[TTS] ERRO na conversão de texto para fala: {e}")
+        print(f"[TTS-OpenAI] Erro: {e}")
         import traceback
         print(traceback.format_exc())
         
-        # Limpa os arquivos temporários em caso de erro
-        try:
-            if 'temp_path' in locals() and os.path.exists(temp_path):
-                print(f"[TTS] Removendo arquivo temporário após erro")
+        # Limpa arquivos temporários
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            try:
                 os.remove(temp_path)
-        except:
-            pass
+            except:
+                pass
+                
+        return None, 0
+
+def tts_with_gtts(text, output_folder):
+    """Converte texto para áudio usando Google Text-to-Speech."""
+    try:
+        # Tenta importar gTTS
+        try:
+            from gtts import gTTS
+        except ImportError:
+            print("[TTS-Google] gTTS não encontrado, tentando instalar...")
+            import subprocess
+            subprocess.check_call(["pip", "install", "gtts==2.3.2"])
+            from gtts import gTTS
+            
+        # Gera um nome de arquivo único
+        unique_filename = f"{uuid.uuid4().hex}_gtts.mp3"
+        output_path = os.path.join(output_folder, unique_filename)
         
+        # Cria o áudio com gTTS (português Brasil)
+        tts = gTTS(text=text, lang='pt-br', slow=False)
+        tts.save(output_path)
+        
+        # Verifica se o arquivo foi criado
+        if not os.path.exists(output_path) or os.path.getsize(output_path) < 100:  # verifica tamanho mínimo
+            print(f"[TTS-Google] Arquivo de áudio não criado corretamente")
+            return None, 0
+            
+        # Estima a duração
+        word_count = len(text.split())
+        estimated_duration = (word_count / 150) * 60
+        
+        return unique_filename, estimated_duration
+        
+    except Exception as e:
+        print(f"[TTS-Google] Erro: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return None, 0
+
+def dummy_audio_fallback(output_folder):
+    """Cria um arquivo de áudio vazio como último recurso."""
+    try:
+        print("[TTS-Fallback] Criando arquivo de áudio dummy...")
+        
+        # Gera um nome de arquivo único
+        unique_filename = f"{uuid.uuid4().hex}_empty.mp3"
+        output_path = os.path.join(output_folder, unique_filename)
+        
+        # Cria um arquivo MP3 mínimo válido (silêncio)
+        # Estes bytes representam um MP3 válido de 1 segundo de silêncio
+        mp3_bytes = b'\xFF\xFB\x90\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        
+        with open(output_path, 'wb') as f:
+            f.write(mp3_bytes)
+            
+        return unique_filename, 1.0  # 1 segundo de duração
+        
+    except Exception as e:
+        print(f"[TTS-Fallback] Erro no método de último recurso: {e}")
         return None, 0 

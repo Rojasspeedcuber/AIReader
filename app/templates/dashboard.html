@@ -49,9 +49,12 @@
                     <div class="card-footer bg-transparent">
                         <div class="btn-group d-flex" role="group">
                             {% if pdf.get_status() == 'Pendente' %}
-                                <a href="{{ url_for('pdf.convert_to_audio', pdf_id=pdf.id) }}" class="btn btn-outline-primary flex-grow-1">
-                                    <i class="fas fa-microphone me-1"></i>Converter
-                                </a>
+                                <form action="{{ url_for('pdf.convert_to_audio', pdf_id=pdf.id) }}" method="POST" class="flex-grow-1">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-outline-primary w-100">
+                                        <i class="fas fa-microphone me-1"></i>Converter
+                                    </button>
+                                </form>
                             {% elif pdf.get_status() == 'Em Processamento' %}
                                 <button class="btn btn-outline-info flex-grow-1" disabled>
                                     <i class="fas fa-spinner fa-spin me-1"></i>Processando...
@@ -65,6 +68,7 @@
                                 </form>
                             {% endif %}
                             <form action="{{ url_for('pdf.delete_pdf', pdf_id=pdf.id) }}" method="POST" class="flex-grow-1">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Tem certeza que deseja excluir este PDF?')">
                                     <i class="fas fa-trash-alt me-1"></i>Excluir
                                 </button>

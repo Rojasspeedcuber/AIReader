@@ -191,7 +191,7 @@ def upload_pdf():
     
     return redirect(url_for('pdf.dashboard'))
 
-@pdf_bp.route('/convert/<int:pdf_id>')
+@pdf_bp.route('/convert/<int:pdf_id>', methods=['POST'])
 @login_required
 @subscription_required
 def convert_to_audio(pdf_id):
@@ -283,36 +283,29 @@ def convert_to_audio(pdf_id):
 @login_required
 @subscription_required
 def download_audio(pdf_id):
-    try:
-        # Verifica se o PDF existe e pertence ao usuário
-        pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first()
-        if not pdf:
-            flash('PDF não encontrado.', 'danger')
-            return redirect(url_for('pdf.dashboard'))
-        
-        # Verifica se o áudio está disponível
-        if pdf.get_status() != 'Convertido':
-            flash('O áudio ainda não está disponível para download.', 'warning')
-            return redirect(url_for('pdf.dashboard'))
-        
-        # Obtém o arquivo de áudio associado
-        audio = AudioFile.query.filter_by(pdf_id=pdf.id).first()
-        if not audio or not audio.file_path:
-            flash('Arquivo de áudio não encontrado.', 'danger')
-            return redirect(url_for('pdf.dashboard'))
-        
-        # Retorna o arquivo de áudio
-        directory = os.path.join(current_app.config['AUDIO_FOLDER'])
-        return send_from_directory(
-            directory,
-            os.path.basename(audio.file_path),
-            as_attachment=True,
-            download_name=f"{pdf.title}.mp3"
-        )
-    except Exception as e:
-        print(f"[ERROR] Erro ao fazer download do áudio: {str(e)}")
-        flash('Erro ao fazer download do arquivo de áudio.', 'danger')
+    # Log para depuração
+    print(f"[Download] Usuário {current_user.email} tentando baixar áudio do PDF {pdf_id}")
+    
+    # Verifica se o PDF existe e pertence ao usuário
+    pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first_or_404()
+    
+    # Verifica se existe um áudio para este PDF
+    if not pdf.audio_files:
+        flash('Este PDF ainda não foi convertido para áudio.', 'warning')
         return redirect(url_for('pdf.dashboard'))
+    
+    # Obtém o primeiro arquivo de áudio (poderia ser expandido para múltiplos arquivos)
+    audio = pdf.audio_files[0]
+    
+    # Nome para o arquivo de download
+    download_name = f"{pdf.title.replace(' ', '_')}.mp3"
+    
+    return send_from_directory(
+        current_app.config['AUDIO_FOLDER'],
+        audio.file_path,
+        as_attachment=True,
+        download_name=download_name
+    )
 
 @pdf_bp.route('/delete/<int:pdf_id>', methods=['POST'])
 @login_required

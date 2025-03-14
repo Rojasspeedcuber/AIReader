@@ -17,6 +17,12 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_secreta_temporari
 # Configura proteção CSRF
 csrf = CSRFProtect(app)
 
+# Handler para erros de CSRF
+@app.errorhandler(CSRFProtect.error_handler)
+def handle_csrf_error(e):
+    flash('Erro de segurança: token CSRF inválido. Por favor, tente novamente.', 'danger')
+    return redirect(url_for('pdf.dashboard'))
+
 # Configura o banco de dados SQLite
 # Usando caminho absoluto para funcionar com Docker
 db_path = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), 'instance', 'aireader.db')

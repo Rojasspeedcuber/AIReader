@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: aireader_web
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app/static/uploads:/app/app/static/uploads
+      - ./app/static/audios:/app/app/static/audios
+    env_file:
+      - .env
+    depends_on:
+      - init_db
+    networks:
+      - aireader_network
+
+  init_db:
+    build: .
+    container_name: aireader_init_db
+    command: python -c "from app import app; from app.models.db import db; app.app_context().push(); db.create_all()"
+    env_file:
+      - .env
+    volumes:
+      - sqlite_data:/app/instance
+    networks:
+      - aireader_network
+
+networks:
+  aireader_network:
+    driver: bridge
+
+volumes:
+  sqlite_data: 

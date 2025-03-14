@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerenciar Assinatura - AI Reader{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h3 class="fw-bold mb-0">Sua Assinatura</h3>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-success mb-4">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-check-circle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="alert-heading mb-1">Assinatura Ativa</h5>
+                            <p class="mb-0">Você tem acesso a todos os recursos premium do AI Reader.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h5 class="fw-bold mb-3">Detalhes da Assinatura</h5>
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <th scope="row" style="width: 40%">Plano</th>
+                                <td>Premium</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Valor</th>
+                                <td>R$100,00 por mês</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Status</th>
+                                <td><span class="badge bg-success">Ativo</span></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Próxima cobrança</th>
+                                <td>
+                                    {% if current_user.subscription_end_date %}
+                                        {{ current_user.subscription_end_date.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <form action="{{ url_for('payment.cancel_subscription_route') }}" method="POST">
+                    <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Tem certeza que deseja cancelar sua assinatura? Você perderá acesso a todos os recursos premium.')">
+                        <i class="fas fa-times-circle me-2"></i>Cancelar Assinatura
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card shadow mt-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3">O que está incluso na sua assinatura</h5>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex align-items-center border-0 pb-3">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Conversão ilimitada de PDFs em áudio</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center border-0 pb-3">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Áudio de alta qualidade usando tecnologia avançada</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center border-0 pb-3">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Download dos arquivos MP3</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center border-0">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Armazenamento de todos os seus livros</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

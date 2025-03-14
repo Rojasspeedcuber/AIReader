@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Assinatura - AI Reader{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mb-5">
+    <div class="col-lg-8 text-center">
+        <h1 class="display-5 fw-bold mb-4">Assine o AI Reader</h1>
+        <p class="lead mb-5">Transforme seus PDFs em áudio de alta qualidade e tenha acesso a todos os recursos premium</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center py-3">
+                <h3 class="fw-bold mb-0">Plano Premium</h3>
+            </div>
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <h2 class="display-4 fw-bold text-primary">R$100</h2>
+                    <p class="text-muted">por mês</p>
+                </div>
+                
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex align-items-center border-0 pb-3">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Conversão ilimitada de PDFs em áudio</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center border-0 pb-3">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Áudio de alta qualidade usando tecnologia avançada</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center border-0 pb-3">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Download dos arquivos MP3</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center border-0 pb-3">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Armazenamento de todos os seus livros</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center border-0">
+                        <i class="fas fa-check-circle text-success me-3"></i>
+                        <span>Suporte prioritário</span>
+                    </li>
+                </ul>
+                
+                <form action="{{ url_for('payment.create_checkout') }}" method="POST">
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-credit-card me-2"></i>Assinar Agora
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card shadow mt-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3">Por que assinar o AI Reader?</h5>
+                <p class="text-muted mb-0">
+                    O AI Reader utiliza tecnologia avançada de inteligência artificial para transformar
+                    qualquer texto em áudio natural e agradável. Com nossa assinatura, você pode converter
+                    quantos PDFs quiser em áudio e acessá-los a qualquer momento.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

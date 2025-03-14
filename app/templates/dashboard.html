@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - AI Reader{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="fw-bold">Meus Livros</h1>
+        <p class="text-muted">Gerencie seus PDFs e arquivos de áudio</p>
+    </div>
+    <div class="col-md-4 text-md-end d-flex align-items-center justify-content-md-end">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="fas fa-upload me-2"></i>Enviar Novo PDF
+        </button>
+    </div>
+</div>
+
+{% if pdfs %}
+    <div class="row">
+        {% for pdf in pdfs %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title text-truncate" title="{{ pdf.title }}">
+                            <i class="fas fa-file-pdf text-danger me-2"></i>{{ pdf.title }}
+                        </h5>
+                        <p class="card-text text-muted small">
+                            Enviado em: {{ pdf.upload_date.strftime('%d/%m/%Y') }}<br>
+                            Páginas: {{ pdf.page_count }}<br>
+                            Tamanho: {{ (pdf.file_size / 1024)|round|int }} KB
+                        </p>
+                        <div class="mb-2">
+                            <span class="badge bg-{{ 'success' if pdf.get_status() == 'Convertido' else 'warning' }}">
+                                {{ pdf.get_status() }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="btn-group d-flex" role="group">
+                            {% if pdf.get_status() == 'Pendente' %}
+                                <a href="{{ url_for('pdf.convert_to_audio', pdf_id=pdf.id) }}" class="btn btn-outline-primary flex-grow-1">
+                                    <i class="fas fa-microphone me-1"></i>Converter
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('pdf.download_audio', pdf_id=pdf.id) }}" class="btn btn-outline-success flex-grow-1">
+                                    <i class="fas fa-download me-1"></i>Baixar MP3
+                                </a>
+                            {% endif %}
+                            <form action="{{ url_for('pdf.delete_pdf', pdf_id=pdf.id) }}" method="POST" class="flex-grow-1">
+                                <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Tem certeza que deseja excluir este PDF?')">
+                                    <i class="fas fa-trash-alt me-1"></i>Excluir
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-book-open fa-4x text-muted mb-3"></i>
+            <h4>Você ainda não tem PDFs</h4>
+            <p class="text-muted">Faça upload do seu primeiro PDF para começar</p>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="fas fa-upload me-2"></i>Enviar PDF
+            </button>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Modal de Upload de PDF -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadModalLabel">Enviar Novo PDF</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('pdf.upload_pdf') }}" method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">{{ form.title.label }}</label>
+                        {{ form.title(class="form-control") }}
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.title.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="pdf_file" class="form-label">{{ form.pdf_file.label }}</label>
+                        {{ form.pdf_file(class="form-control") }}
+                        {% if form.pdf_file.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.pdf_file.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Tamanho máximo: 16MB</div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

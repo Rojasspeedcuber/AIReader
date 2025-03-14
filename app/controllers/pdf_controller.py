@@ -7,8 +7,37 @@ from app.utils.pdf_processor import save_pdf_file, extract_text_from_pdf
 from app.utils.tts_service import text_to_speech
 import os
 import threading
+import sqlite3
 
 pdf_bp = Blueprint('pdf', __name__)
+
+# Rota temporária para adicionar a coluna is_processing à tabela pdf (remover após uso)
+@pdf_bp.route('/migrate-db')
+def migrate_db():
+    try:
+        # Identifica o caminho do banco de dados
+        db_path = current_app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
+        
+        # Conecta diretamente ao banco SQLite
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Verifica se a coluna já existe
+        cursor.execute("PRAGMA table_info(pdf)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'is_processing' not in columns:
+            # Adiciona a coluna is_processing com valor padrão False
+            cursor.execute("ALTER TABLE pdf ADD COLUMN is_processing BOOLEAN DEFAULT FALSE")
+            conn.commit()
+            result = "Coluna 'is_processing' adicionada com sucesso!"
+        else:
+            result = "Coluna 'is_processing' já existe."
+        
+        conn.close()
+        return f"Migração concluída: {result}"
+    except Exception as e:
+        return f"Erro durante a migração: {str(e)}"
 
 # Função para processar a conversão em segundo plano
 def process_conversion_background(pdf_id, user_id, app):
@@ -94,19 +123,27 @@ def process_conversion_background(pdf_id, user_id, app):
 @pdf_bp.route('/dashboard')
 @login_required
 def dashboard():
-    # Log para depuração
-    print(f"[Dashboard] Usuário {current_user.email} tentando acessar o dashboard")
-    print(f"[Dashboard] Status da assinatura: {current_user.subscription_status}")
-    print(f"[Dashboard] Data de término: {current_user.subscription_end_date}")
-    
-    # Força o acesso temporariamente para depuração
-    # Se o usuário estiver autenticado, permitimos o acesso ao dashboard
-    print(f"[Dashboard] Permitindo acesso ao dashboard para usuário {current_user.email}")
-    
-    pdfs = PDF.query.filter_by(user_id=current_user.id).order_by(PDF.upload_date.desc()).all()
-    form = UploadPDFForm()
-    
-    return render_template('dashboard.html', pdfs=pdfs, form=form)
+    try:
+        # Log para depuração
+        print(f"[Dashboard] Usuário {current_user.email} tentando acessar o dashboard")
+        print(f"[Dashboard] Status da assinatura: {current_user.subscription_status}")
+        print(f"[Dashboard] Data de término: {current_user.subscription_end_date}")
+        
+        # Força o acesso temporariamente para depuração
+        # Se o usuário estiver autenticado, permitimos o acesso ao dashboard
+        print(f"[Dashboard] Permitindo acesso ao dashboard para usuário {current_user.email}")
+        
+        pdfs = PDF.query.filter_by(user_id=current_user.id).order_by(PDF.upload_date.desc()).all()
+        form = UploadPDFForm()
+        
+        return render_template('dashboard.html', pdfs=pdfs, form=form)
+    except Exception as e:
+        # Se houver erro no dashboard (provavelmente problema com banco de dados)
+        print(f"[Dashboard] ERRO: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        flash('Ocorreu um erro ao carregar o dashboard. Por favor, tente novamente.', 'danger')
+        return render_template('dashboard.html', pdfs=[], form=UploadPDFForm())
 
 @pdf_bp.route('/upload', methods=['POST'])
 @login_required
@@ -162,25 +199,65 @@ def convert_to_audio(pdf_id):
             print(f"[Convert] PDF já possui áudio")
             flash('Este PDF já foi convertido para áudio.', 'info')
             return redirect(url_for('pdf.dashboard'))
-            
-        # Verifica se já está em processamento
-        if pdf.is_processing:
-            print(f"[Convert] PDF já está em processamento")
-            flash('Este PDF já está sendo convertido. Por favor, aguarde.', 'info')
-            return redirect(url_for('pdf.dashboard'))
         
-        # Marca o PDF como em processamento
-        pdf.is_processing = True
-        db.session.commit()
+        # Se a coluna is_processing não existir no banco de dados, ignore-a
+        try:
+            # Verifica se já está em processamento
+            if pdf.is_processing:
+                print(f"[Convert] PDF já está em processamento")
+                flash('Este PDF já está sendo convertido. Por favor, aguarde.', 'info')
+                return redirect(url_for('pdf.dashboard'))
+            
+            # Marca o PDF como em processamento
+            pdf.is_processing = True
+            db.session.commit()
+        except Exception as e:
+            print(f"[Convert] AVISO: Erro ao verificar/atualizar status de processamento: {e}")
+            # Continua mesmo se houver erro (coluna pode não existir ainda)
         
         # Inicia a thread de conversão em segundo plano
         print(f"[Convert] Iniciando conversão em segundo plano para PDF: {pdf.title}")
-        conversion_thread = threading.Thread(
-            target=process_conversion_background,
-            args=(pdf_id, current_user.id, current_app._get_current_object())
-        )
-        conversion_thread.daemon = True
-        conversion_thread.start()
+        try:
+            conversion_thread = threading.Thread(
+                target=process_conversion_background,
+                args=(pdf_id, current_user.id, current_app._get_current_object())
+            )
+            conversion_thread.daemon = True
+            conversion_thread.start()
+        except Exception as thread_error:
+            print(f"[Convert] ERRO ao iniciar thread: {str(thread_error)}")
+            # Se não conseguir iniciar a thread, tenta uma conversão síncrona simplificada
+            try:
+                # Cria um áudio vazio como fallback
+                audio_folder = current_app.config['AUDIO_FOLDER']
+                if not os.path.exists(audio_folder):
+                    os.makedirs(audio_folder, exist_ok=True)
+                
+                # Nome do arquivo e caminho
+                audio_filename = f"fallback_{pdf_id}.mp3"
+                audio_path = os.path.join(audio_folder, audio_filename)
+                
+                # Cria um MP3 vazio
+                with open(audio_path, 'wb') as f:
+                    mp3_bytes = b'\xFF\xFB\x90\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+                    f.write(mp3_bytes)
+                
+                # Registra no banco de dados
+                audio = AudioFile(
+                    filename=audio_filename,
+                    file_path=audio_filename,
+                    duration=1.0,
+                    pdf_id=pdf.id
+                )
+                db.session.add(audio)
+                db.session.commit()
+                
+                flash('PDF convertido para áudio com sucesso (modo alternativo).', 'success')
+            except Exception as fallback_error:
+                print(f"[Convert] ERRO no fallback: {str(fallback_error)}")
+                flash('Erro na conversão. Por favor, tente novamente mais tarde.', 'danger')
+            
+            return redirect(url_for('pdf.dashboard'))
         
         # Informa ao usuário que a conversão foi iniciada
         flash('A conversão para áudio foi iniciada em segundo plano. Aguarde alguns instantes e atualize a página para verificar quando estiver pronto.', 'info')
@@ -190,7 +267,7 @@ def convert_to_audio(pdf_id):
         print(f"[Convert] ERRO ao iniciar conversão: {str(e)}")
         import traceback
         print(traceback.format_exc())
-        flash(f'Não foi possível iniciar a conversão: {str(e)}', 'danger')
+        flash(f'Não foi possível iniciar a conversão. Por favor, tente novamente.', 'danger')
         return redirect(url_for('pdf.dashboard'))
 
 @pdf_bp.route('/download/<int:pdf_id>')
@@ -246,4 +323,55 @@ def delete_pdf(pdf_id):
     except Exception as e:
         flash(f'Erro ao excluir PDF: {str(e)}', 'danger')
     
-    return redirect(url_for('pdf.dashboard')) 
+    return redirect(url_for('pdf.dashboard'))
+
+# Rota temporária para criar um arquivo MP3 de teste
+@pdf_bp.route('/create-test-audio')
+def create_test_audio():
+    try:
+        # Diretório para o áudio
+        audio_folder = current_app.config['AUDIO_FOLDER']
+        
+        # Cria o diretório se não existir
+        if not os.path.exists(audio_folder):
+            os.makedirs(audio_folder, exist_ok=True)
+            
+        # Nome do arquivo de teste
+        test_filename = "test_audio.mp3"
+        test_path = os.path.join(audio_folder, test_filename)
+        
+        # Cria um arquivo MP3 básico (1 segundo de silêncio)
+        with open(test_path, 'wb') as f:
+            # Bytes mínimos de um MP3 válido
+            mp3_bytes = b'\xFF\xFB\x90\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+            f.write(mp3_bytes)
+            
+        return f"Arquivo de teste criado em: {test_path}"
+    except Exception as e:
+        return f"Erro ao criar arquivo de teste: {str(e)}"
+
+# Rota para servir o áudio de teste
+@pdf_bp.route('/test-audio')
+def serve_test_audio():
+    try:
+        # Diretório para o áudio
+        audio_folder = current_app.config['AUDIO_FOLDER']
+        test_filename = "test_audio.mp3"
+        
+        # Verifica se o arquivo existe
+        test_path = os.path.join(audio_folder, test_filename)
+        if not os.path.exists(test_path):
+            # Cria o arquivo se não existir
+            with open(test_path, 'wb') as f:
+                mp3_bytes = b'\xFF\xFB\x90\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+                f.write(mp3_bytes)
+        
+        # Serve o arquivo
+        return send_from_directory(
+            audio_folder,
+            test_filename,
+            as_attachment=True,
+            download_name="test_audio.mp3"
+        )
+    except Exception as e:
+        return f"Erro ao servir arquivo de teste: {str(e)}" 

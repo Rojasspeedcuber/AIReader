@@ -30,7 +30,7 @@
                             </tr>
                             <tr>
                                 <th scope="row">Valor</th>
-                                <td>R$50,00 por mês</td>
+                                <td>R$54,99 por mês</td>
                             </tr>
                             <tr>
                                 <th scope="row">Status</th>
@@ -51,6 +51,8 @@
                 </div>
                 
                 <form action="{{ url_for('payment.cancel_subscription_route') }}" method="POST">
+                    <input type="hidden" name="subscription_id" value="{{ current_user.stripe_subscription_id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Tem certeza que deseja cancelar sua assinatura? Você perderá acesso a todos os recursos premium.')">
                         <i class="fas fa-times-circle me-2"></i>Cancelar Assinatura
                     </button>

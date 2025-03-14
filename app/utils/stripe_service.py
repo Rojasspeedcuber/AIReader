@@ -48,9 +48,25 @@ def get_subscription(subscription_id):
 def cancel_subscription(subscription_id):
     """Cancela uma assinatura"""
     try:
-        return stripe.Subscription.delete(subscription_id)
+        print(f"[Stripe Service] Iniciando cancelamento da assinatura ID: {subscription_id}")
+        subscription = stripe.Subscription.retrieve(subscription_id)
+        print(f"[Stripe Service] Assinatura recuperada: {subscription.id} - Status atual: {subscription.status}")
+        
+        # Se a assinatura já estiver cancelada, apenas retorne-a
+        if subscription.status == 'canceled':
+            print(f"[Stripe Service] A assinatura já está cancelada")
+            return subscription
+        
+        # Cancela a assinatura
+        canceled_subscription = stripe.Subscription.delete(subscription_id)
+        print(f"[Stripe Service] Assinatura cancelada com sucesso: {canceled_subscription.id} - Novo status: {canceled_subscription.status}")
+        return canceled_subscription
+    except stripe.error.StripeError as e:
+        # Trata erros específicos do Stripe com mais detalhes
+        print(f"[Stripe Service] Erro Stripe ao cancelar assinatura: {str(e)}")
+        return None
     except Exception as e:
-        print(f"Erro ao cancelar assinatura: {e}")
+        print(f"[Stripe Service] Erro ao cancelar assinatura: {str(e)}")
         return None
 
 def handle_subscription_event(subscription):

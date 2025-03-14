@@ -131,20 +131,25 @@
     </div>
 </div>
 
-<!-- Script de atualização automática para PDFs em processamento (corrigido) -->
+<!-- Adiciona atributo de dados para verificar status de processamento -->
+<div id="dashboard-container" 
+    data-has-processing="{% if pdfs|selectattr('get_status', 'equalto', 'Em Processamento')|list|length > 0 %}true{% else %}false{% endif %}">
+</div>
+
+<!-- Script separado sem código Jinja dentro -->
 <script>
-    // Recarrega a página a cada 10 segundos se houver PDFs em processamento
-    {% set has_processing = false %}
-    {% for pdf in pdfs %}
-        {% if pdf.get_status() == 'Em Processamento' %}
-            {% set has_processing = true %}
-        {% endif %}
-    {% endfor %}
-    
-    {% if has_processing %}
-    setTimeout(function() {
-        window.location.reload();
-    }, 10000);
-    {% endif %}
+    // Auto-refresh para PDFs em processamento
+    window.addEventListener('DOMContentLoaded', function() {
+        // Lê o atributo de dados do contêiner
+        var container = document.getElementById('dashboard-container');
+        var hasProcessing = container.getAttribute('data-has-processing') === 'true';
+        
+        // Se houver PDFs em processamento, configura o reload automático
+        if (hasProcessing) {
+            setTimeout(function() {
+                window.location.reload();
+            }, 10000);
+        }
+    });
 </script>
 {% endblock %} 

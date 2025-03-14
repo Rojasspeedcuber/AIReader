@@ -63,20 +63,30 @@ def subscription_success():
 @payment_bp.route('/cancel-subscription', methods=['POST'])
 @login_required
 def cancel_subscription_route():
+    print(f"[DEBUG] Iniciando cancelamento de assinatura para usuário {current_user.email}")
+    
+    # Verifica se o usuário tem uma assinatura
     if not current_user.stripe_subscription_id:
+        print(f"[DEBUG] Usuário {current_user.email} não tem ID de assinatura: {current_user.stripe_subscription_id}")
         flash('Você não possui uma assinatura ativa.', 'warning')
         return redirect(url_for('payment.subscription'))
     
+    subscription_id = current_user.stripe_subscription_id
+    print(f"[DEBUG] Tentando cancelar a assinatura ID: {subscription_id}")
+    
     # Cancela a assinatura no Stripe
-    result = cancel_subscription(current_user.stripe_subscription_id)
+    result = cancel_subscription(subscription_id)
     
     if result and result.status == 'canceled':
         # Atualiza o status no banco de dados
+        print(f"[DEBUG] Assinatura cancelada com sucesso: {result.id} - Status: {result.status}")
         current_user.subscription_status = 'canceled'
         db.session.commit()
         
         flash('Sua assinatura foi cancelada com sucesso.', 'success')
     else:
+        error_msg = "Resultado nulo" if not result else f"Status inválido: {result.status}"
+        print(f"[DEBUG] Erro no cancelamento da assinatura: {error_msg}")
         flash('Erro ao cancelar assinatura. Por favor, tente novamente.', 'danger')
     
     return redirect(url_for('payment.subscription'))

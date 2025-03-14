@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_from_directory
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_from_directory, Response
 from flask_login import login_required, current_user
 from app.models.db import db
 from app.models.pdf import PDF, AudioFile
@@ -9,6 +9,7 @@ import os
 import threading
 import sqlite3
 from functools import wraps
+import re
 
 pdf_bp = Blueprint('pdf', __name__)
 
@@ -283,29 +284,57 @@ def convert_to_audio(pdf_id):
 @login_required
 @subscription_required
 def download_audio(pdf_id):
-    # Log para depuração
-    print(f"[Download] Usuário {current_user.email} tentando baixar áudio do PDF {pdf_id}")
-    
-    # Verifica se o PDF existe e pertence ao usuário
-    pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first_or_404()
-    
-    # Verifica se existe um áudio para este PDF
-    if not pdf.audio_files:
-        flash('Este PDF ainda não foi convertido para áudio.', 'warning')
+    try:
+        # Log para depuração
+        print(f"[Download] Usuário {current_user.email} tentando baixar áudio do PDF {pdf_id}")
+        
+        # Verifica se o PDF existe e pertence ao usuário
+        pdf = PDF.query.filter_by(id=pdf_id, user_id=current_user.id).first_or_404()
+        
+        # Verifica se existe um áudio para este PDF
+        if not pdf.audio_files:
+            flash('Este PDF ainda não foi convertido para áudio.', 'warning')
+            return redirect(url_for('pdf.dashboard'))
+        
+        # Obtém o primeiro arquivo de áudio
+        audio = pdf.audio_files[0]
+        
+        # Verifica se o arquivo existe fisicamente
+        audio_path = os.path.join(current_app.config['AUDIO_FOLDER'], audio.file_path)
+        if not os.path.exists(audio_path):
+            flash('Arquivo de áudio não encontrado no servidor.', 'danger')
+            return redirect(url_for('pdf.dashboard'))
+            
+        # Verifica o tamanho do arquivo
+        file_size = os.path.getsize(audio_path)
+        if file_size == 0:
+            flash('O arquivo de áudio está corrompido.', 'danger')
+            return redirect(url_for('pdf.dashboard'))
+        
+        # Nome para o arquivo de download (remove caracteres especiais)
+        safe_title = re.sub(r'[^a-zA-Z0-9_-]', '_', pdf.title)
+        download_name = f"{safe_title}.mp3"
+        
+        # Configura os headers para streaming
+        def generate():
+            with open(audio_path, 'rb') as f:
+                while True:
+                    chunk = f.read(8192)  # 8KB por chunk
+                    if not chunk:
+                        break
+                    yield chunk
+        
+        response = Response(generate(), mimetype='audio/mpeg')
+        response.headers['Content-Disposition'] = f'attachment; filename="{download_name}"'
+        response.headers['Content-Length'] = file_size
+        return response
+        
+    except Exception as e:
+        print(f"[Download] ERRO: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        flash('Erro ao baixar o arquivo de áudio. Por favor, tente novamente.', 'danger')
         return redirect(url_for('pdf.dashboard'))
-    
-    # Obtém o primeiro arquivo de áudio (poderia ser expandido para múltiplos arquivos)
-    audio = pdf.audio_files[0]
-    
-    # Nome para o arquivo de download
-    download_name = f"{pdf.title.replace(' ', '_')}.mp3"
-    
-    return send_from_directory(
-        current_app.config['AUDIO_FOLDER'],
-        audio.file_path,
-        as_attachment=True,
-        download_name=download_name
-    )
 
 @pdf_bp.route('/delete/<int:pdf_id>', methods=['POST'])
 @login_required

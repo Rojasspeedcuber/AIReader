@@ -30,9 +30,20 @@
                             Tamanho: {{ (pdf.file_size / 1024)|round|int }} KB
                         </p>
                         <div class="mb-2">
-                            <span class="badge bg-{{ 'success' if pdf.get_status() == 'Convertido' else 'warning' }}">
-                                {{ pdf.get_status() }}
-                            </span>
+                            {% set status = pdf.get_status() %}
+                            {% if status == 'Convertido' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>{{ status }}
+                                </span>
+                            {% elif status == 'Em Processamento' %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-spinner fa-spin me-1"></i>{{ status }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-clock me-1"></i>{{ status }}
+                                </span>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="card-footer bg-transparent">
@@ -41,6 +52,10 @@
                                 <a href="{{ url_for('pdf.convert_to_audio', pdf_id=pdf.id) }}" class="btn btn-outline-primary flex-grow-1">
                                     <i class="fas fa-microphone me-1"></i>Converter
                                 </a>
+                            {% elif pdf.get_status() == 'Em Processamento' %}
+                                <button class="btn btn-outline-info flex-grow-1" disabled>
+                                    <i class="fas fa-spinner fa-spin me-1"></i>Processando...
+                                </button>
                             {% else %}
                                 <a href="{{ url_for('pdf.download_audio', pdf_id=pdf.id) }}" class="btn btn-outline-success flex-grow-1">
                                     <i class="fas fa-download me-1"></i>Baixar MP3
@@ -115,4 +130,14 @@
         </div>
     </div>
 </div>
+
+{% if pdfs and any(pdf.get_status() == 'Em Processamento' for pdf in pdfs) %}
+<!-- Script de atualização automática para PDFs em processamento -->
+<script>
+    // Recarrega a página a cada 10 segundos se houver PDFs em processamento
+    setTimeout(function() {
+        window.location.reload();
+    }, 10000);
+</script>
+{% endif %}
 {% endblock %} 

@@ -6,8 +6,90 @@ from app.utils.forms import UploadPDFForm
 from app.utils.pdf_processor import save_pdf_file, extract_text_from_pdf
 from app.utils.tts_service import text_to_speech
 import os
+import threading
 
 pdf_bp = Blueprint('pdf', __name__)
+
+# Função para processar a conversão em segundo plano
+def process_conversion_background(pdf_id, user_id, app):
+    """Processa a conversão de PDF para áudio em segundo plano"""
+    with app.app_context():
+        try:
+            # Recupera o PDF
+            pdf = PDF.query.filter_by(id=pdf_id, user_id=user_id).first()
+            if not pdf:
+                print(f"[BG-Convert] PDF {pdf_id} não encontrado para usuário {user_id}")
+                return
+                
+            print(f"[BG-Convert] Iniciando conversão em segundo plano para PDF: {pdf.title}")
+            
+            # Caminho completo para o PDF
+            pdf_path = os.path.join(current_app.config['UPLOAD_FOLDER'], pdf.file_path)
+            
+            # Verifica se o arquivo existe
+            if not os.path.exists(pdf_path):
+                print(f"[BG-Convert] ERRO: Arquivo PDF não encontrado no caminho: {pdf_path}")
+                # Marca o PDF como não processando
+                pdf.is_processing = False
+                db.session.commit()
+                return
+            
+            # Extrai o texto do PDF
+            text, _ = extract_text_from_pdf(pdf_path)
+            
+            if not text:
+                print(f"[BG-Convert] ERRO: Não foi possível extrair texto do PDF")
+                # Marca o PDF como não processando
+                pdf.is_processing = False
+                db.session.commit()
+                return
+            
+            print(f"[BG-Convert] Texto extraído com sucesso. Tamanho: {len(text)} caracteres")
+            
+            # Verifica se o diretório de áudio existe
+            audio_folder = current_app.config['AUDIO_FOLDER']
+            if not os.path.exists(audio_folder):
+                os.makedirs(audio_folder, exist_ok=True)
+            
+            # Converte o texto para áudio
+            audio_filename, duration = text_to_speech(text, audio_folder)
+            
+            if not audio_filename:
+                print(f"[BG-Convert] ERRO: Falha na conversão de texto para áudio")
+                # Marca o PDF como não processando
+                pdf.is_processing = False
+                db.session.commit()
+                return
+            
+            print(f"[BG-Convert] Áudio gerado com sucesso: {audio_filename}, duração: {duration}s")
+            
+            # Cria o registro do áudio no banco de dados
+            audio = AudioFile(
+                filename=audio_filename,
+                file_path=audio_filename,
+                duration=duration,
+                pdf_id=pdf.id
+            )
+            
+            # Adiciona o áudio e marca o PDF como não processando
+            db.session.add(audio)
+            pdf.is_processing = False
+            db.session.commit()
+            print(f"[BG-Convert] Conversão concluída e registro salvo no banco de dados")
+            
+        except Exception as e:
+            print(f"[BG-Convert] ERRO na conversão em segundo plano: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            
+            # Em caso de erro, marca o PDF como não processando
+            try:
+                pdf = PDF.query.filter_by(id=pdf_id, user_id=user_id).first()
+                if pdf:
+                    pdf.is_processing = False
+                    db.session.commit()
+            except:
+                pass
 
 @pdf_bp.route('/dashboard')
 @login_required
@@ -80,74 +162,35 @@ def convert_to_audio(pdf_id):
             print(f"[Convert] PDF já possui áudio")
             flash('Este PDF já foi convertido para áudio.', 'info')
             return redirect(url_for('pdf.dashboard'))
-        
-        # Caminho completo para o PDF
-        pdf_path = os.path.join(current_app.config['UPLOAD_FOLDER'], pdf.file_path)
-        print(f"[Convert] Caminho do PDF: {pdf_path}")
-        
-        # Verifica se o arquivo existe
-        if not os.path.exists(pdf_path):
-            print(f"[Convert] ERRO: Arquivo PDF não encontrado no caminho: {pdf_path}")
-            flash('Arquivo PDF não encontrado no servidor.', 'danger')
+            
+        # Verifica se já está em processamento
+        if pdf.is_processing:
+            print(f"[Convert] PDF já está em processamento")
+            flash('Este PDF já está sendo convertido. Por favor, aguarde.', 'info')
             return redirect(url_for('pdf.dashboard'))
         
-        print(f"[Convert] Extraindo texto do PDF...")
-        # Extrai o texto do PDF
-        text, _ = extract_text_from_pdf(pdf_path)
-        
-        if not text:
-            print(f"[Convert] ERRO: Não foi possível extrair texto do PDF")
-            flash('Não foi possível extrair texto deste PDF.', 'danger')
-            return redirect(url_for('pdf.dashboard'))
-        
-        print(f"[Convert] Texto extraído com sucesso. Tamanho: {len(text)} caracteres")
-        print(f"[Convert] Convertendo texto para áudio...")
-        
-        # Verifica se o diretório de áudio existe
-        audio_folder = current_app.config['AUDIO_FOLDER']
-        if not os.path.exists(audio_folder):
-            print(f"[Convert] Criando diretório de áudio: {audio_folder}")
-            os.makedirs(audio_folder, exist_ok=True)
-        
-        # Verifica a API key do OpenAI
-        openai_key = os.environ.get("OPENAI_API_KEY")
-        if not openai_key:
-            print(f"[Convert] ERRO: API key do OpenAI não encontrada")
-            flash('Erro de configuração: API key do OpenAI não encontrada.', 'danger')
-            return redirect(url_for('pdf.dashboard'))
-        else:
-            print(f"[Convert] API key do OpenAI encontrada e configurada")
-        
-        # Converte o texto para áudio
-        audio_filename, duration = text_to_speech(text, audio_folder)
-        
-        if not audio_filename:
-            print(f"[Convert] ERRO: Falha na conversão de texto para áudio")
-            flash('Erro ao converter o texto para áudio. Problema na API de conversão. Por favor, tente novamente mais tarde.', 'danger')
-            return redirect(url_for('pdf.dashboard'))
-        
-        print(f"[Convert] Áudio gerado com sucesso: {audio_filename}, duração: {duration}s")
-        
-        # Cria o registro do áudio no banco de dados
-        audio = AudioFile(
-            filename=audio_filename,
-            file_path=audio_filename,
-            duration=duration,
-            pdf_id=pdf.id
-        )
-        
-        db.session.add(audio)
+        # Marca o PDF como em processamento
+        pdf.is_processing = True
         db.session.commit()
-        print(f"[Convert] Registro de áudio salvo no banco de dados")
         
-        flash('PDF convertido para áudio com sucesso!', 'success')
+        # Inicia a thread de conversão em segundo plano
+        print(f"[Convert] Iniciando conversão em segundo plano para PDF: {pdf.title}")
+        conversion_thread = threading.Thread(
+            target=process_conversion_background,
+            args=(pdf_id, current_user.id, current_app._get_current_object())
+        )
+        conversion_thread.daemon = True
+        conversion_thread.start()
+        
+        # Informa ao usuário que a conversão foi iniciada
+        flash('A conversão para áudio foi iniciada em segundo plano. Aguarde alguns instantes e atualize a página para verificar quando estiver pronto.', 'info')
         return redirect(url_for('pdf.dashboard'))
     
     except Exception as e:
-        print(f"[Convert] ERRO CRÍTICO na conversão: {str(e)}")
+        print(f"[Convert] ERRO ao iniciar conversão: {str(e)}")
         import traceback
         print(traceback.format_exc())
-        flash(f'Erro durante a conversão: {str(e)}', 'danger')
+        flash(f'Não foi possível iniciar a conversão: {str(e)}', 'danger')
         return redirect(url_for('pdf.dashboard'))
 
 @pdf_bp.route('/download/<int:pdf_id>')

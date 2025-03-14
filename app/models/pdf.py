@@ -14,6 +14,9 @@ class PDF(db.Model):
     # Caminho relativo para o arquivo PDF
     file_path = db.Column(db.String(300))
     
+    # Status de processamento
+    is_processing = db.Column(db.Boolean, default=False)
+    
     # Relacionamento com o usuário
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
@@ -21,7 +24,9 @@ class PDF(db.Model):
     audio_files = db.relationship('AudioFile', backref='pdf', lazy=True, cascade="all, delete-orphan")
     
     def get_status(self):
-        if not self.audio_files:
+        if self.is_processing:
+            return "Em Processamento"
+        elif not self.audio_files:
             return "Pendente"
         else:
             return "Convertido"

@@ -24,9 +24,16 @@ class PDF(db.Model):
     audio_files = db.relationship('AudioFile', backref='pdf', lazy=True, cascade="all, delete-orphan")
     
     def get_status(self):
-        if self.is_processing:
-            return "Em Processamento"
-        elif not self.audio_files:
+        # Verifica se o atributo is_processing existe e é True
+        try:
+            if hasattr(self, 'is_processing') and self.is_processing:
+                return "Em Processamento"
+        except:
+            # Ignora erros se a coluna ainda não existe
+            pass
+        
+        # Verifica se existem arquivos de áudio
+        if not self.audio_files:
             return "Pendente"
         else:
             return "Convertido"

@@ -131,13 +131,20 @@
     </div>
 </div>
 
-{% if pdfs and any(pdf.get_status() == 'Em Processamento' for pdf in pdfs) %}
-<!-- Script de atualização automática para PDFs em processamento -->
+<!-- Script de atualização automática para PDFs em processamento (corrigido) -->
 <script>
     // Recarrega a página a cada 10 segundos se houver PDFs em processamento
+    {% set has_processing = false %}
+    {% for pdf in pdfs %}
+        {% if pdf.get_status() == 'Em Processamento' %}
+            {% set has_processing = true %}
+        {% endif %}
+    {% endfor %}
+    
+    {% if has_processing %}
     setTimeout(function() {
         window.location.reload();
     }, 10000);
+    {% endif %}
 </script>
-{% endif %}
 {% endblock %} 
